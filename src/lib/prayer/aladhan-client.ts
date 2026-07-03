@@ -16,6 +16,34 @@ export function parsePrayerTime(timeStr: string, date: Date): Date {
   return result;
 }
 
+function parseTimingsResponse(timings: Record<string, string>): PrayerTimings {
+  return {
+    Fajr: timings.Fajr.split(" ")[0],
+    Sunrise: timings.Sunrise.split(" ")[0],
+    Dhuhr: timings.Dhuhr.split(" ")[0],
+    Asr: timings.Asr.split(" ")[0],
+    Maghrib: timings.Maghrib.split(" ")[0],
+    Isha: timings.Isha.split(" ")[0],
+  };
+}
+
+export async function fetchPrayerTimesByCoordinates(
+  latitude: number,
+  longitude: number,
+  date: Date,
+  method = 1,
+): Promise<PrayerTimings> {
+  const base = process.env.ALADHAN_API_BASE ?? "https://api.aladhan.com/v1";
+  const dateStr = `${date.getDate()}-${date.getMonth() + 1}-${date.getFullYear()}`;
+  const url = `${base}/timings/${dateStr}?latitude=${latitude}&longitude=${longitude}&method=${method}`;
+
+  const res = await fetch(url, { next: { revalidate: 86400 } });
+  if (!res.ok) throw new Error("Failed to fetch prayer times");
+
+  const json = await res.json();
+  return parseTimingsResponse(json.data.timings as Record<string, string>);
+}
+
 export async function fetchPrayerTimesFromApi(
   city: string,
   country: string,
@@ -30,16 +58,7 @@ export async function fetchPrayerTimesFromApi(
   if (!res.ok) throw new Error("Failed to fetch prayer times");
 
   const json = await res.json();
-  const timings = json.data.timings as Record<string, string>;
-
-  return {
-    Fajr: timings.Fajr.split(" ")[0],
-    Sunrise: timings.Sunrise.split(" ")[0],
-    Dhuhr: timings.Dhuhr.split(" ")[0],
-    Asr: timings.Asr.split(" ")[0],
-    Maghrib: timings.Maghrib.split(" ")[0],
-    Isha: timings.Isha.split(" ")[0],
-  };
+  return parseTimingsResponse(json.data.timings as Record<string, string>);
 }
 
 export function getNextPrayer(timings: PrayerTimings, now = new Date()): {
@@ -67,6 +86,10 @@ export function getNextPrayer(timings: PrayerTimings, now = new Date()): {
 
 export function isFriday(date: Date): boolean {
   return date.getDay() === 5;
+}
+
+export function isPrayerEnabled(profile: { prayerPreference?: string | null }): boolean {
+  return profile.prayerPreference !== "disabled";
 }
 
 export { PRAYER_NAMES };

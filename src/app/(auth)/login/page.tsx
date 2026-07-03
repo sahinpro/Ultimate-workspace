@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LiquidBackground } from "@/components/shared/liquid-background";
+import { Sparkles } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,43 +38,48 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Welcome back</CardTitle>
-          <CardDescription>Sign in to your workspace</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" {...form.register("email")} />
+    <LiquidBackground variant="mist">
+      <div className="relative z-10 flex min-h-screen items-center justify-center p-4">
+        <Card className="glass-panel w-full max-w-md border-0 shadow-none">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl glass-strong">
+              <Sparkles className="h-6 w-6 text-primary" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" {...form.register("password")} />
+            <CardTitle className="text-2xl">Welcome back</CardTitle>
+            <CardDescription>Sign in to your workspace</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" {...form.register("email")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" type="password" {...form.register("password")} />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <Button type="submit" className="w-full rounded-xl" disabled={loading}>
+                {loading ? "Signing in..." : "Sign In"}
+              </Button>
+            </form>
+            <div className="mt-4 flex flex-col gap-2">
+              <Button variant="outline" className="rounded-xl" onClick={() => signIn("google", { callbackUrl: "/dashboard" })}>
+                Continue with Google
+              </Button>
+              <Button variant="outline" className="rounded-xl" onClick={() => signIn("github", { callbackUrl: "/dashboard" })}>
+                Continue with GitHub
+              </Button>
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
-          <div className="mt-4 flex flex-col gap-2">
-            <Button variant="outline" onClick={() => signIn("google", { callbackUrl: "/dashboard" })}>
-              Continue with Google
-            </Button>
-            <Button variant="outline" onClick={() => signIn("github", { callbackUrl: "/dashboard" })}>
-              Continue with GitHub
-            </Button>
-          </div>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            No account?{" "}
-            <Link href="/register" className="text-primary hover:underline">
-              Register
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+            <p className="mt-4 text-center text-sm text-muted-foreground">
+              No account?{" "}
+              <Link href="/register" className="font-medium text-primary hover:underline">
+                Register
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </LiquidBackground>
   );
 }

@@ -126,20 +126,29 @@ export class RoutineEngineService {
   async updateScheduledBlock(
     userId: string,
     blockId: string,
-    data: { startTime: Date; endTime: Date; title?: string },
+    data: {
+      startTime?: Date;
+      endTime?: Date;
+      title?: string;
+      status?: "PLANNED" | "IN_PROGRESS" | "COMPLETED" | "SKIPPED" | "MISSED";
+    },
   ) {
     const block = await prisma.scheduledBlock.findFirst({
       where: { id: blockId, scheduleDay: { userId } },
       include: { scheduleDay: true },
     });
     if (!block) throw new Error("Block not found");
+    if (block.isPrayerBlock && (data.startTime || data.endTime)) {
+      throw new Error("Prayer blocks cannot be moved");
+    }
 
     const updated = await prisma.scheduledBlock.update({
       where: { id: blockId },
       data: {
         startTime: data.startTime,
         endTime: data.endTime,
-        title: data.title ?? block.title,
+        title: data.title,
+        status: data.status,
       },
     });
 

@@ -1,13 +1,14 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { format, startOfWeek } from "date-fns";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format, startOfWeek, addWeeks, addDays } from "date-fns";
 import { motion } from "framer-motion";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { PrayerBar } from "./prayer-bar";
 import { RoutineLegend, BlockCell } from "./routine-legend";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
 
 type ScheduledBlock = {
   id: string;
@@ -33,10 +34,26 @@ function getTimeSlotLabel(block: ScheduledBlock): string {
   return `${format(start, "h:mma").replace(":00", "")}–${format(end, "h:mma").replace(":00", "")}`;
 }
 
-export function WeeklyGrid({ baseDate }: { baseDate?: Date }) {
-  const date = baseDate ?? new Date();
+export function WeeklyGrid({ baseDate: initialDate }: { baseDate?: Date }) {
+  const queryClient = useQueryClient();
+  const [weekOffset, setWeekOffset] = useState(0);
+  const date = addWeeks(initialDate ?? new Date(), weekOffset);
   const weekStart = startOfWeek(date, { weekStartsOn: 1 });
   const dateParam = format(weekStart, "yyyy-MM-dd");
+
+  const regenerate = useMutation({
+    mutationFn: async () => {
+      await fetch("/api/v1/routine/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: dateParam, range: "week" }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["routine-week"] });
+      queryClient.invalidateQueries({ queryKey: ["routine-day"] });
+    },
+  });
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["routine-week", dateParam],
@@ -57,7 +74,7 @@ export function WeeklyGrid({ baseDate }: { baseDate?: Date }) {
   });
 
   if (isLoading) {
-    return <div className="animate-pulse rounded-xl bg-muted h-96" />;
+    return <div className="glass-card h-96 animate-pulse" />;
   }
 
   const week = data?.week ?? [];
@@ -79,12 +96,26 @@ export function WeeklyGrid({ baseDate }: { baseDate?: Date }) {
   return (
     <div className="space-y-4">
       <PrayerBar date={date} />
-      <div className="flex items-center justify-between">
-        <RoutineLegend />
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={() => setWeekOffset((w) => w - 1)}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-medium">{format(weekStart, "MMM d")} – {format(addDays(weekStart, 6), "MMM d, yyyy")}</span>
+          <Button variant="outline" size="icon" onClick={() => setWeekOffset((w) => w + 1)}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <RoutineLegend />
+          <Button variant="outline" size="sm" onClick={() => regenerate.mutate()} disabled={regenerate.isPending}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${regenerate.isPending ? "animate-spin" : ""}`} />
+            Regenerate
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {allConflicts.length > 0 && (
@@ -96,7 +127,7 @@ export function WeeklyGrid({ baseDate }: { baseDate?: Date }) {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="overflow-x-auto"
+        className="glass-panel overflow-x-auto p-4"
       >
         <div className="grid min-w-[700px] grid-cols-[70px_repeat(7,1fr)] gap-0.5">
           <div />
@@ -147,54 +178,6 @@ export function WeeklyGrid({ baseDate }: { baseDate?: Date }) {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-export function DailyTimeline({ date }: { date?: Date }) {
-  const dateStr = format(date ?? new Date(), "yyyy-MM-dd");
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["routine-day", dateStr],
-    queryFn: async () => {
-      const res = await fetch(`/api/v1/routine/schedule?date=${dateStr}&view=day`);
-      const json = await res.json();
-      return json.data as DaySchedule;
-    },
-  });
-
-  if (isLoading) return <div className="animate-pulse rounded-xl bg-muted h-64" />;
-
-  const blocks = data?.blocks ?? [];
-
-  return (
-    <div className="space-y-3">
-      <PrayerBar date={date} />
-      <div className="relative space-y-1">
-        {blocks.map((block, i) => (
-          <motion.div
-            key={block.id}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.03 }}
-            className="flex items-center gap-3 rounded-lg border p-3"
-            style={{ borderLeftColor: block.color, borderLeftWidth: 3 }}
-          >
-            <div className="w-20 shrink-0 text-xs text-muted-foreground">
-              {format(new Date(block.startTime), "h:mm a")}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">{block.title}</p>
-              <p className="text-xs text-muted-foreground">
-                {format(new Date(block.endTime), "h:mm a")}
-              </p>
-            </div>
-          </motion.div>
-        ))}
-        {blocks.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">No blocks scheduled</p>
-        )}
-      </div>
     </div>
   );
 }

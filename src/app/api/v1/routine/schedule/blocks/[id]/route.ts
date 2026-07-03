@@ -12,9 +12,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const { id } = await params;
     const body = scheduleBlockPatchSchema.parse(await req.json());
     const result = await routineEngine.updateScheduledBlock(session.user.id, id, {
-      startTime: new Date(body.startTime),
-      endTime: new Date(body.endTime),
+      startTime: body.startTime ? new Date(body.startTime) : undefined,
+      endTime: body.endTime ? new Date(body.endTime) : undefined,
       title: body.title,
+      status: body.status,
     });
     return NextResponse.json(apiSuccess(result));
   } catch (error) {

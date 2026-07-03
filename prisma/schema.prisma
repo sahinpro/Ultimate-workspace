@@ -171,6 +171,7 @@ model Profile {
   ramadanMode        Boolean  @default(false)
   prayerMethod       Int      @default(1)
   city               String?
+  locationLabel      String?
   latitude           Float?
   longitude          Float?
   autoAdaptSchedule  Boolean  @default(false)

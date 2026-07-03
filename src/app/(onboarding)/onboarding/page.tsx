@@ -19,6 +19,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { LocationPicker } from "@/components/shared/location-picker";
+import { LiquidBackground } from "@/components/shared/liquid-background";
+import type { SelectedLocation } from "@/lib/location/types";
 
 const STEPS = ["Profile", "Location", "Schedule", "Profession", "Prayer"];
 
@@ -31,11 +34,26 @@ const PROFESSIONS = [
   { value: "remote_worker", label: "Remote Worker" },
 ];
 
+const PRAYER_METHODS = [
+  { value: 1, label: "University of Islamic Sciences, Karachi" },
+  { value: 2, label: "Islamic Society of North America (ISNA)" },
+  { value: 3, label: "Muslim World League" },
+  { value: 4, label: "Umm Al-Qura University, Makkah" },
+  { value: 5, label: "Egyptian General Authority of Survey" },
+  { value: 8, label: "Gulf Region" },
+  { value: 9, label: "Kuwait" },
+  { value: 10, label: "Qatar" },
+  { value: 11, label: "Singapore" },
+  { value: 13, label: "Turkey (Diyanet)" },
+  { value: 14, label: "Russia" },
+];
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [location, setLocation] = useState<SelectedLocation | null>(null);
 
   const form = useForm<OnboardingInput>({
     resolver: zodResolver(onboardingSchema),
@@ -50,9 +68,20 @@ export default function OnboardingPage() {
       sleepStart: "22:30",
       sleepEnd: "06:00",
       prayerPreference: "enabled",
+      prayerMethod: 1,
       city: "Dhaka",
     },
   });
+
+  function handleLocationChange(loc: SelectedLocation) {
+    setLocation(loc);
+    form.setValue("city", loc.city);
+    form.setValue("country", loc.country);
+    form.setValue("latitude", loc.latitude);
+    form.setValue("longitude", loc.longitude);
+    form.setValue("timezone", loc.timezone);
+    form.setValue("locationLabel", loc.label);
+  }
 
   async function handleComplete() {
     setLoading(true);
@@ -60,6 +89,10 @@ export default function OnboardingPage() {
     try {
       const valid = await form.trigger();
       if (!valid) return;
+      if (!location && !form.getValues("latitude")) {
+        setError("Please select your location for accurate prayer times");
+        return;
+      }
       await completeOnboarding(form.getValues());
       router.push("/routine");
       router.refresh();
@@ -73,13 +106,14 @@ export default function OnboardingPage() {
   const progress = ((step + 1) / STEPS.length) * 100;
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-lg">
-        <CardHeader>
-          <CardTitle>Welcome to Ultimate Workspace</CardTitle>
-          <CardDescription>Step {step + 1} of {STEPS.length}: {STEPS[step]}</CardDescription>
-          <Progress value={progress} className="mt-2" />
-        </CardHeader>
+    <LiquidBackground variant="mesh">
+      <div className="relative z-10 flex min-h-screen items-center justify-center p-4">
+        <Card className="glass-panel w-full max-w-lg border-0 shadow-none">
+          <CardHeader>
+            <CardTitle className="text-2xl">Welcome to Ultimate Workspace</CardTitle>
+            <CardDescription>Step {step + 1} of {STEPS.length}: {STEPS[step]}</CardDescription>
+            <Progress value={progress} className="mt-3 h-2" />
+          </CardHeader>
         <CardContent>
           <AnimatePresence mode="wait">
             <motion.div
@@ -103,17 +137,14 @@ export default function OnboardingPage() {
               )}
               {step === 1 && (
                 <>
+                  <LocationPicker
+                    value={location}
+                    onChange={handleLocationChange}
+                    label="Your location (for prayer times)"
+                  />
                   <div className="space-y-2">
                     <Label>Timezone</Label>
-                    <Input {...form.register("timezone")} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Country (ISO code)</Label>
-                    <Input {...form.register("country")} placeholder="BD" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>City</Label>
-                    <Input {...form.register("city")} placeholder="Dhaka" />
+                    <Input {...form.register("timezone")} readOnly className="bg-muted" />
                   </div>
                 </>
               )}
@@ -159,30 +190,44 @@ export default function OnboardingPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">
-                    We&apos;ll seed a personalized routine template based on your profession.
-                  </p>
                 </div>
               )}
               {step === 4 && (
-                <div className="space-y-2">
-                  <Label>Prayer times</Label>
-                  <Select
-                    value={form.watch("prayerPreference")}
-                    onValueChange={(v) => form.setValue("prayerPreference", v as "enabled" | "disabled")}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="enabled">Enable prayer-aware scheduling</SelectItem>
-                      <SelectItem value="disabled">Disable prayer scheduling</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Prayer blocks will be automatically placed and shift throughout the year.
-                  </p>
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <Label>Prayer-aware scheduling</Label>
+                    <Select
+                      value={form.watch("prayerPreference")}
+                      onValueChange={(v) => form.setValue("prayerPreference", v as "enabled" | "disabled")}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="enabled">Enable prayer blocks in routine</SelectItem>
+                        <SelectItem value="disabled">Disable prayer scheduling</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Prayer calculation method</Label>
+                    <Select
+                      value={String(form.watch("prayerMethod") ?? 1)}
+                      onValueChange={(v) => form.setValue("prayerMethod", Number(v))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRAYER_METHODS.map((m) => (
+                          <SelectItem key={m.value} value={String(m.value)}>
+                            {m.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
               )}
             </motion.div>
           </AnimatePresence>
@@ -202,7 +247,8 @@ export default function OnboardingPage() {
             )}
           </div>
         </CardContent>
-      </Card>
-    </div>
+        </Card>
+      </div>
+    </LiquidBackground>
   );
 }

@@ -1,8 +1,13 @@
 import { prisma } from "@/lib/db/prisma";
 import {
+  fetchPrayerTimesByCoordinates,
   fetchPrayerTimesFromApi,
   type PrayerTimings,
 } from "@/lib/prayer/aladhan-client";
+
+export async function invalidatePrayerCache(userId: string) {
+  await prisma.prayerTimeCache.deleteMany({ where: { userId } });
+}
 
 export async function getPrayerTimesForUser(
   userId: string,
@@ -24,12 +29,23 @@ export async function getPrayerTimesForUser(
   const country = profile?.country ?? "BD";
   const method = profile?.prayerMethod ?? 1;
 
-  const timings = await fetchPrayerTimesFromApi(city, country, dateOnly, method);
+  let timings: PrayerTimings;
+
+  if (profile?.latitude != null && profile?.longitude != null) {
+    timings = await fetchPrayerTimesByCoordinates(
+      profile.latitude,
+      profile.longitude,
+      dateOnly,
+      method,
+    );
+  } else {
+    timings = await fetchPrayerTimesFromApi(city, country, dateOnly, method);
+  }
 
   await prisma.prayerTimeCache.upsert({
     where: { userId_date: { userId, date: dateOnly } },
     create: { userId, date: dateOnly, city, country, timings },
-    update: { timings, fetchedAt: new Date() },
+    update: { timings, fetchedAt: new Date(), city, country },
   });
 
   return timings;

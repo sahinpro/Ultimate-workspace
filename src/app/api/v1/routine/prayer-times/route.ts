@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, handleApiError } from "@/lib/api/auth-guard";
 import { apiSuccess } from "@/lib/api/response";
+import { prisma } from "@/lib/db/prisma";
 import { getPrayerTimesForUser } from "@/server/services/prayer-time.service";
-import { getNextPrayer } from "@/lib/prayer/aladhan-client";
+import { getNextPrayer, isPrayerEnabled } from "@/lib/prayer/aladhan-client";
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,9 +11,23 @@ export async function GET(req: NextRequest) {
     const date = req.nextUrl.searchParams.get("date")
       ? new Date(req.nextUrl.searchParams.get("date")!)
       : new Date();
+
+    const profile = await prisma.profile.findUnique({ where: { userId: session.user.id } });
+
+    if (!profile || !isPrayerEnabled(profile)) {
+      return NextResponse.json(apiSuccess({ timings: null, next: null, enabled: false, location: profile?.locationLabel }));
+    }
+
     const timings = await getPrayerTimesForUser(session.user.id, date);
     const next = getNextPrayer(timings);
-    return NextResponse.json(apiSuccess({ timings, next }));
+    return NextResponse.json(
+      apiSuccess({
+        timings,
+        next,
+        enabled: true,
+        location: profile.locationLabel ?? `${profile.city}, ${profile.country}`,
+      }),
+    );
   } catch (error) {
     return handleApiError(error);
   }

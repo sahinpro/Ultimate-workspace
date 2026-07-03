@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type PrayerTimings = {
@@ -21,11 +22,24 @@ export function PrayerBar({ date }: { date?: Date }) {
     queryFn: async () => {
       const res = await fetch(`/api/v1/routine/prayer-times?date=${dateStr}`);
       const json = await res.json();
-      return json.data as { timings: PrayerTimings; next: { name: string; minutesUntil: number } | null };
+      return json.data as {
+        timings: PrayerTimings | null;
+        next: { name: string; minutesUntil: number } | null;
+        enabled: boolean;
+        location?: string;
+      };
     },
   });
 
   if (!data) return null;
+
+  if (!data.enabled || !data.timings) {
+    return (
+      <div className="glass-card p-4 text-sm text-muted-foreground">
+        Prayer scheduling is disabled. Enable it in Settings to see prayer times.
+      </div>
+    );
+  }
 
   const entries = [
     { name: "Fajr", time: data.timings.Fajr },
@@ -37,11 +51,19 @@ export function PrayerBar({ date }: { date?: Date }) {
   ];
 
   return (
-    <div className="rounded-lg border border-[#eda10040] bg-[#faeeda] p-4 dark:bg-[#3a2200] dark:text-[#faeeda]">
-      <div className="mb-2 flex items-center justify-between">
-        <strong className="text-sm">Prayer Times</strong>
+    <div className="glass-card border-[#eda10030] bg-[#faeeda]/60 p-4 dark:bg-[#3a2200]/50 dark:text-[#faeeda]">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <strong className="text-sm">Prayer Times</strong>
+          {data.location && (
+            <p className="mt-0.5 flex items-center gap-1 text-[10px] opacity-70">
+              <MapPin className="h-3 w-3" />
+              {data.location}
+            </p>
+          )}
+        </div>
         {data.next && (
-          <span className="text-xs font-medium text-[#633806] dark:text-[#eda100]">
+          <span className="rounded-full glass px-3 py-1 text-xs font-medium text-[#633806] dark:text-[#eda100]">
             {data.next.name} in {data.next.minutesUntil} min
           </span>
         )}
@@ -51,8 +73,8 @@ export function PrayerBar({ date }: { date?: Date }) {
           <div
             key={p.name}
             className={cn(
-              "rounded-md border border-[#eda10040] bg-[#fff8ec] px-2.5 py-1 text-xs dark:bg-[#633806]/30",
-              data.next?.name === p.name && "ring-2 ring-[#eda100]",
+              "rounded-xl glass px-3 py-1.5 text-xs",
+              data.next?.name === p.name && "ring-2 ring-[#eda100] ring-offset-1 ring-offset-transparent",
             )}
           >
             <span className="block font-medium">{p.name}</span>

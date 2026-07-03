@@ -11,7 +11,9 @@ export const onboardingSchema = z.object({
   sleepStart: z.string(),
   sleepEnd: z.string(),
   prayerPreference: z.enum(["enabled", "disabled"]),
+  prayerMethod: z.number().int().min(0).max(23).optional(),
   city: z.string().optional(),
+  locationLabel: z.string().optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
 });
@@ -50,9 +52,10 @@ export const routineBlockSchema = z.object({
 });
 
 export const scheduleBlockPatchSchema = z.object({
-  startTime: z.string().datetime(),
-  endTime: z.string().datetime(),
+  startTime: z.string().datetime().optional(),
+  endTime: z.string().datetime().optional(),
   title: z.string().optional(),
+  status: z.enum(["PLANNED", "IN_PROGRESS", "COMPLETED", "SKIPPED", "MISSED"]).optional(),
 });
 
 export const personalRuleSchema = z.object({

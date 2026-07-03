@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PrayerBar } from "@/features/routine/components/prayer-bar";
-import { DailyTimeline } from "@/features/routine/components/weekly-grid";
+import { InteractiveDailyTimeline } from "@/features/routine/components/interactive-daily-timeline";
 import { RoutineOptimizer } from "@/features/routine/components/routine-optimizer";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -23,10 +23,10 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
+          <h1 className="text-3xl font-bold tracking-tight">
             {greeting}, {session?.user?.name?.split(" ")[0] ?? "there"}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="mt-1 text-muted-foreground">
             {profile?.profession?.replace(/_/g, " ") ?? "Your workspace"} · {profile?.timezone}
           </p>
         </div>
@@ -48,7 +48,7 @@ export default async function DashboardPage() {
               </Button>
             </CardHeader>
             <CardContent>
-              <DailyTimeline />
+              <InteractiveDailyTimeline />
             </CardContent>
           </Card>
           <RoutineOptimizer />
@@ -70,10 +70,12 @@ function StatCard({
 }) {
   return (
     <Link href={href}>
-      <Card className="transition-colors hover:bg-accent/50">
+      <Card className="glass transition-all duration-200 hover:scale-[1.02] hover:shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-          <Icon className="h-4 w-4 text-muted-foreground" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl glass">
+            <Icon className="h-4 w-4 text-primary" />
+          </div>
         </CardHeader>
         <CardContent>
           <p className="text-2xl font-bold">{value}</p>

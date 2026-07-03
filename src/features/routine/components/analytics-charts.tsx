@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   BarChart,
   Bar,
@@ -11,15 +13,17 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 
 export function RoutineAnalyticsDashboard() {
+  const [range, setRange] = useState<"week" | "month">("week");
+
   const { data, isLoading } = useQuery({
-    queryKey: ["routine-analytics"],
+    queryKey: ["routine-analytics", range],
     queryFn: async () => {
-      const res = await fetch("/api/v1/routine/analytics?range=week");
+      const res = await fetch(`/api/v1/routine/analytics?range=${range}`);
       const json = await res.json();
       return json.data;
     },
@@ -36,6 +40,14 @@ export function RoutineAnalyticsDashboard() {
 
   return (
     <div className="space-y-6">
+      <div className="flex gap-2">
+        <Button variant={range === "week" ? "default" : "outline"} size="sm" onClick={() => setRange("week")}>
+          Week
+        </Button>
+        <Button variant={range === "month" ? "default" : "outline"} size="sm" onClick={() => setRange("month")}>
+          Month
+        </Button>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Card key={stat.label}>

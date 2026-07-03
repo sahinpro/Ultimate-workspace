@@ -53,8 +53,10 @@ export async function completeOnboarding(input: OnboardingInput) {
       energyProfile,
       weekendRules,
       city: parsed.city ?? "Dhaka",
+      locationLabel: parsed.locationLabel,
       latitude: parsed.latitude,
       longitude: parsed.longitude,
+      prayerMethod: parsed.prayerMethod ?? 1,
       onboardingComplete: true,
     },
     update: {
@@ -68,8 +70,10 @@ export async function completeOnboarding(input: OnboardingInput) {
       energyProfile,
       weekendRules,
       city: parsed.city,
+      locationLabel: parsed.locationLabel,
       latitude: parsed.latitude,
       longitude: parsed.longitude,
+      prayerMethod: parsed.prayerMethod ?? 1,
       onboardingComplete: true,
     },
   });

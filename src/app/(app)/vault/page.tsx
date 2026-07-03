@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Eye, Trash2, Copy } from "lucide-react";
+import { Plus, Eye, Trash2, Copy, Pencil } from "lucide-react";
 import { maskSecret } from "@/lib/crypto/vault";
 
 type VaultItem = {
@@ -39,6 +39,11 @@ export default function VaultPage() {
   const [title, setTitle] = useState("");
   const [payload, setPayload] = useState("");
   const [type, setType] = useState("NOTE");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editPayload, setEditPayload] = useState("");
+  const [editType, setEditType] = useState("NOTE");
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["vault"],
@@ -84,6 +89,34 @@ export default function VaultPage() {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["vault"] }),
   });
+
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      if (!editId) return;
+      await fetch(`/api/v1/vault/${editId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editTitle, payload: editPayload, type: editType }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vault"] });
+      setEditOpen(false);
+    },
+  });
+
+  function openEdit(id: string) {
+    viewMutation.mutate(id, {
+      onSuccess: (payload) => {
+        const item = items.find((i) => i.id === id);
+        setEditId(id);
+        setEditTitle(item?.title ?? "");
+        setEditPayload(payload);
+        setEditType(item?.type ?? "NOTE");
+        setEditOpen(true);
+      },
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -139,6 +172,36 @@ export default function VaultPage() {
           </DialogContent>
         </Dialog>
 
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Edit Vault Item</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Title</Label>
+                <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select value={editType} onValueChange={setEditType}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["NOTE", "API_KEY", "PASSWORD", "OTHER"].map((t) => (
+                      <SelectItem key={t} value={t}>{t.replace("_", " ")}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Content</Label>
+                <Textarea value={editPayload} onChange={(e) => setEditPayload(e.target.value)} rows={4} />
+              </div>
+              <Button onClick={() => editMutation.mutate()} disabled={!editTitle || !editPayload}>
+                Update Encrypted
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {isLoading ? (
           <div className="animate-pulse space-y-2">
             {[1, 2].map((i) => <div key={i} className="h-20 rounded-lg bg-muted" />)}
@@ -154,6 +217,9 @@ export default function VaultPage() {
                 <CardContent className="flex items-center justify-between">
                   <span className="font-mono text-sm text-muted-foreground">{maskSecret("encrypted")}</span>
                   <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(item.id)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => viewMutation.mutate(item.id)}>
                       <Eye className="h-4 w-4" />
                     </Button>

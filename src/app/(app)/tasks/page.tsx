@@ -20,8 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Check } from "lucide-react";
+import { Plus, Trash2, Check, CalendarClock } from "lucide-react";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+
+type ScheduledBlock = {
+  id: string;
+  startTime: string;
+  endTime: string;
+  title: string;
+};
 
 type Task = {
   id: string;
@@ -31,6 +39,7 @@ type Task = {
   priority: string;
   dueDate: string | null;
   autoSchedule: boolean;
+  scheduledBlocks?: ScheduledBlock[];
 };
 
 export default function TasksPage() {
@@ -62,20 +71,27 @@ export default function TasksPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["routine-week"] });
+      queryClient.invalidateQueries({ queryKey: ["routine-day"] });
       setOpen(false);
       setTitle("");
+      setAutoSchedule(false);
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async ({ id, ...data }: { id: string; status?: string; autoSchedule?: boolean }) => {
       await fetch(`/api/v1/tasks/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(data),
       });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["routine-week"] });
+      queryClient.invalidateQueries({ queryKey: ["routine-day"] });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -174,9 +190,27 @@ export default function TasksPage() {
                       {task.title}
                     </p>
                     {task.autoSchedule && (
-                      <span className="text-[10px] text-primary">Auto-scheduled</span>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-primary">
+                        <span>Auto-scheduled</span>
+                        {task.scheduledBlocks?.[0] && (
+                          <span className="inline-flex items-center gap-1 text-muted-foreground">
+                            <CalendarClock className="h-3 w-3" />
+                            {format(new Date(task.scheduledBlocks[0].startTime), "EEE h:mm a")}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={task.autoSchedule}
+                      onChange={(e) =>
+                        updateMutation.mutate({ id: task.id, autoSchedule: e.target.checked })
+                      }
+                    />
+                    Schedule
+                  </label>
                   <span className={cn("rounded-full px-2 py-0.5 text-xs", priorityColors[task.priority])}>
                     {task.priority}
                   </span>

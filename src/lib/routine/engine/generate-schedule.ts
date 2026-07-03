@@ -1,6 +1,6 @@
 import type { BlockCategory, EnergyLevel, Profile, RoutineBlock } from "@prisma/client";
 import { addMinutes, parse, format, startOfDay, addDays, isSameDay } from "date-fns";
-import { parsePrayerTime, type PrayerTimings, isFriday } from "@/lib/prayer/aladhan-client";
+import { parsePrayerTime, type PrayerTimings, isFriday, isPrayerEnabled } from "@/lib/prayer/aladhan-client";
 
 export type ScheduleBlockInput = {
   title: string;
@@ -56,6 +56,22 @@ export function getEnergyForHour(hour: number, profile: Profile): EnergyLevel {
   return (energy.night as EnergyLevel) ?? "LOW";
 }
 
+function isDuringSleep(hour: number, minute: number, profile: Profile): boolean {
+  const sleep = profile.sleepSchedule as { start?: string; end?: string } | null;
+  if (!sleep?.start || !sleep?.end) return false;
+  const [sH, sM] = sleep.start.split(":").map(Number);
+  const [eH, eM] = sleep.end.split(":").map(Number);
+  const current = hour * 60 + minute;
+  const start = sH * 60 + sM;
+  const end = eH * 60 + eM;
+  if (start > end) return current >= start || current < end;
+  return current >= start && current < end;
+}
+
+function shouldSkipForSleep(start: Date, profile: Profile): boolean {
+  return isDuringSleep(start.getHours(), start.getMinutes(), profile);
+}
+
 function parseTimeHint(hint: string, date: Date): Date {
   const parsed = parse(hint, "HH:mm", date);
   return parsed;
@@ -106,6 +122,7 @@ export function generateBlocksForDay(
   const dayOfWeek = date.getDay();
   const blocks: ScheduleBlockInput[] = [];
   let order = 0;
+  const prayerEnabled = isPrayerEnabled(profile);
 
   const weekendRules = profile.weekendRules as { restDays?: number[] } | null;
   const restDays = weekendRules?.restDays ?? (profile.country === "BD" ? [0] : [0, 6]);
@@ -122,7 +139,7 @@ export function generateBlocksForDay(
       isPrayerBlock: false,
       sortOrder: order++,
     });
-    blocks.push(...generatePrayerBlocks(date, timings, isFriday(date)));
+    if (prayerEnabled) blocks.push(...generatePrayerBlocks(date, timings, isFriday(date)));
     return blocks.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
   }
 
@@ -141,6 +158,8 @@ export function generateBlocksForDay(
       start = parseTimeHint(wh?.start ?? "09:00", day);
     }
     const end = addMinutes(start, block.durationMinutes);
+
+    if (shouldSkipForSleep(start, profile)) continue;
 
     if (isFriday(date) && block.category === "OFFICE_WORK") {
       const dhuhr = parsePrayerTime(timings.Dhuhr, day);
@@ -176,7 +195,7 @@ export function generateBlocksForDay(
     });
   }
 
-  blocks.push(...generatePrayerBlocks(date, timings, isFriday(date)));
+  if (prayerEnabled) blocks.push(...generatePrayerBlocks(date, timings, isFriday(date)));
 
   return blocks.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 }

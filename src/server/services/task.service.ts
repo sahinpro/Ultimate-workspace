@@ -18,7 +18,15 @@ export async function listTasks(
   const [tasks, total] = await Promise.all([
     prisma.task.findMany({
       where,
-      include: { category: true, tags: true },
+      include: {
+        category: true,
+        tags: true,
+        scheduledBlocks: {
+          take: 1,
+          orderBy: { startTime: "asc" },
+          select: { id: true, startTime: true, endTime: true, title: true },
+        },
+      },
       orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
       skip: (page - 1) * limit,
       take: limit,
@@ -85,8 +93,13 @@ export async function updateTask(
       ...data,
       completedAt: data.status === "DONE" ? new Date() : data.status ? null : undefined,
     },
-    include: { category: true },
+    include: { category: true, scheduledBlocks: { take: 1, orderBy: { startTime: "asc" } } },
   });
+
+  if (data.autoSchedule === true && !existing.autoSchedule) {
+    const date = task.dueDate ?? new Date();
+    await routineEngine.generateSchedule(userId, date);
+  }
 
   return task;
 }
